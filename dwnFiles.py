@@ -1,99 +1,68 @@
 import os
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
-from google.oauth2 import service_account
-import io
+from io import FileIO
 
 
-def authenticate():
-    # Replace with the path to your service account JSON file
-    service_account_file = "finalyearop-cb5035f55e5d.json"
+from google_auth_oauthlib.flow import InstalledAppFlow
 
-    creds = service_account.Credentials.from_service_account_file(
-        service_account_file, scopes=["https://www.googleapis.com/auth/drive"]
-    )
-    return creds
+# If modifying these SCOPES, delete the file token.json.
+SCOPES = ["https://www.googleapis.com/auth/drive.metadata.readonly"]
 
 
-def download_excel_file(file_id, destination_path, credentials):
-    drive_service = build("drive", "v3", credentials=credentials)
-
-    # Set the MIME type for Excel files
-    mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-    request = drive_service.files().export_media(fileId=file_id, mimeType=mime_type)
-
-    fh = io.FileIO(destination_path, mode="wb")
-    downloader = MediaIoBaseDownload(fh, request)
-
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-
-    print(f"Downloaded Excel file ID: {file_id} to {destination_path}")
+def get_drive_service(client_secret_file, token_file):
+    flow = InstalledAppFlow.from_client_secrets_file(client_secret_file, SCOPES)
+    creds = flow.run_local_server(port=0)
+    return build("drive", "v3", credentials=creds)
 
 
+# Function to download file from Google Drive
+def download_file(file_id, local_destination_path, credentials):
+    service = build("drive", "v3", credentials=credentials)
+    request = service.files().get_media(fileId=file_id)
+    local_file_path = os.path.join(local_destination_path, request.execute()["name"])
+    with open(local_file_path, "wb") as fh:
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print(f"Downloading {int(status.progress() * 100)}%")
+
+
+# Function to list files in a folder
 def list_files_in_folder(folder_id, credentials):
-    drive_service = build("drive", "v3", credentials=credentials)
-
+    service = build("drive", "v3", credentials=credentials)
     results = (
-        drive_service.files()
+        service.files()
         .list(q=f"'{folder_id}' in parents", fields="files(id, name)")
         .execute()
     )
     files = results.get("files", [])
-
     return files
 
 
-if __name__ == "__main__":
-    # Replace with the folder ID of the folder containing your Excel files
-    folder_id_to_download = "1mNfzd72uQtNOeGGW0nvkff5dycBwHVCA"
+# Function to download contents of a folder
+def download_folder_contents(folder_id, local_destination_path, credentials):
+    files = list_files_in_folder(folder_id, credentials)
+    for file in files:
+        file_id = file["id"]
+        download_file(file_id, local_destination_path, credentials)
 
-    # Replace with the path to the folder where you want to save the downloaded Excel files
-    # local_destination_folder = "path/to/local/destination/folder"
+
+def main():
+    # Replace with your actual folder ID and service account JSON file path
+    folder_id = "1mNfzd72uQtNOeGGW0nvkff5dycBwHVCA"
+    creds_path = "finalyearop-cb5035f55e5d.json"
+    # service_account_file = "finalyearop-cb5035f55e5d.json"
     local_destination_folder = "UploadedData"
 
     # Authenticate and get Google Drive service
-    credentials = authenticate()
+    drive_service = get_drive_service(creds_path)
 
-    # List Excel files in the specified folder
-    excel_files_to_download = [
-        file
-        for file in list_files_in_folder(folder_id_to_download, credentials)
-        if file["name"].endswith(".xlsx")
-    ]
-
-    # Download each Excel file in the folder
-    for excel_file in excel_files_to_download:
-        excel_file_id = excel_file["id"]
-        excel_file_name = excel_file["name"]
-        local_destination_path = os.path.join(local_destination_folder, excel_file_name)
-
-        download_excel_file(excel_file_id, local_destination_path, credentials)
+    # Download contents of the folder
+    download_folder_contents(folder_id, local_destination_folder, drive_service)
 
 
-# if __name__ == "__main__":
-#     # Replace with the folder ID of the folder containing your files
-
-
-#     # Authenticate and get Google Drive service
-#     credentials = authenticate()
-
-#     # List files in the specified folder
-#     files_to_download = list_files_in_folder(folder_id_to_download, credentials)
-
-#     # Download each file in the folder
-#     for file in files_to_download:
-#         file_id = file["id"]
-#         file_name = file["name"]
-#         local_destination_path = os.path.join(local_destination_folder, file_name)
-
-#         download_file(file_id, local_destination_path, credentials)
-
-
-#   # Replace with the folder ID of the folder containing your files
-#     folder_id_to_download = "1mNfzd72uQtNOeGGW0nvkff5dycBwHVCA"
-
-#     # Replace with the path to the folder where you want to save the downloaded files
-#     local_destination_folder = "UploadedData"
+if __name__ == "__main__":
+    main()
