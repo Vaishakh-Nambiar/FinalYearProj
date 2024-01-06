@@ -10,10 +10,10 @@ from googleapiclient.http import MediaFileUpload
 
 # Function to read sensor data
 def read_sensor_data():
-    # Generate random values for temperature and humidity
+    # Replace this with your actual sensor data reading logic
+    # For testing, generate random values for temperature and humidity
     temperature = round(random.uniform(20.0, 30.0), 2)
     humidity = round(random.uniform(40.0, 80.0), 2)
-
     sensor_data = {"Temperature": temperature, "Humidity": humidity}
     return sensor_data
 
@@ -73,57 +73,60 @@ def upload_to_drive(file_path, drive_service, folder_id=None):
     print(f"Data uploaded to Google Drive: {file_path}")
 
 
-record_count = 0
-excel_file_path = None
-days = 10
-recordNum = 1200
-t = 1
+# Function to upload data to Google Drive with additional folder structure
+def upload_data_with_structure(
+    drive_service, days, record_num, parent_folder_id, service_account_file
+):
+    record_count = 0
+    folder_count = 0
+    excel_files_in_folder = 0
 
-folder_count = 0
-excel_files_in_folder = 0
+    while record_count < (days * record_num):
+        sensor_data = read_sensor_data()
+
+        if record_count % record_num == 0:
+            # Create a new Excel file after record_num records
+            excel_files_in_folder += 1
+            if excel_files_in_folder > 3:
+                # Create a new folder every 3 Excel files
+                folder_count += 1
+                folder_name = f"DataFolder_{folder_count}"
+                parent_folder_id = create_drive_folder(
+                    drive_service, folder_name, parent_folder_id=parent_folder_id
+                )
+                excel_files_in_folder = 1
+
+            excel_file_path = f"finalyrdata_{record_count // record_num + 1}.xlsx"
+
+        append_to_excel(sensor_data, excel_file_path)
+
+        # Increment record count
+        record_count += 1
+
+        # Wait for 5 minutes (300 seconds)
+        time.sleep(2)  # Reduced wait time for testing
+
+        # Check if it's time to upload to Google Drive (daily basis)
+        if record_count % record_num == 0:
+            upload_to_drive(excel_file_path, drive_service, parent_folder_id)
+
 
 # Replace with your actual parent folder ID
 # parent_folder_id = "1mNfzd72uQtNOeGGW0nvkff5dycBwHVCA"
-# parent_folder_id = "1mNfzd72uQtNOeGGW0nvkff5dycBwHVCA"
-
-# # Set the path to your service account JSON file
-# service_account_file = "finalyearop-cb5035f55e5d.json"
-
-service_account_file = "finalyearproject-410409-fc9ec0410fb0.json"
-
-
-# Replace with your actual parent folder ID
 parent_folder_id = "1SqzUmCWsy_e9p6GuInBXVJJdDv7eu8Kz"
+
+# Set the path to your service account JSON file
+# service_account_file = "finalyearop-cb5035f55e5d.json"
+service_account_file = "finalyearproject-410409-fc9ec0410fb0.json"
 
 # Authenticate and get Google Drive service
 drive_service = get_drive_service(service_account_file)
 
-while record_count < (days * recordNum):  # Run for 2 days (2 days * 10 records/day)
-    sensor_data = read_sensor_data()
-
-    if record_count % recordNum == 0:
-        # Create a new Excel file after recordNum records
-        excel_files_in_folder += 1
-        if excel_files_in_folder > 3:
-            # Create a new folder every 3 Excel files
-            folder_count += 1
-            folder_name = f"DataFolder_{folder_count}"
-            parent_folder_id = create_drive_folder(
-                drive_service, folder_name, parent_folder_id=parent_folder_id
-            )
-            excel_files_in_folder = 1
-
-        excel_file_path = f"finalyrdata_{record_count // recordNum + 1}.xlsx"
-
-    append_to_excel(sensor_data, excel_file_path)
-
-    # Increment record count
-    record_count += 1
-
-    # Wait for 5 minutes (300 seconds)
-    time.sleep(t)
-
-    # Check if it's time to upload to Google Drive (daily basis)
-    if record_count % recordNum == 0:
-        upload_to_drive(excel_file_path, drive_service, parent_folder_id)
-# https://drive.google.com/drive/folders/1mNfzd72uQtNOeGGW0nvkff5dycBwHVCA?usp=sharing
+# Upload data to Google Drive with additional folder structure
+upload_data_with_structure(
+    drive_service,
+    days=4,
+    record_num=5,
+    parent_folder_id=parent_folder_id,
+    service_account_file=service_account_file,
+)

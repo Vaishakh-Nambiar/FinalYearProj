@@ -1,7 +1,7 @@
-import smbus
-import time
 import pandas as pd
 from datetime import datetime
+import time
+import random
 import os
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -9,60 +9,51 @@ from googleapiclient.http import MediaFileUpload
 import numpy as np
 
 
-# I2C address of the SEN0433 sensor
-SEN0433_ADDRESS = 0x68
-
-# Register addresses for accelerometer data
-ACCEL_XOUT_H = 0x3B
-ACCEL_XOUT_L = 0x3C
-ACCEL_YOUT_H = 0x3D
-ACCEL_YOUT_L = 0x3E
-ACCEL_ZOUT_H = 0x3F
-ACCEL_ZOUT_L = 0x40
-
-# Initialize the I2C bus
-bus = smbus.SMBus(1)  # 1 indicates the I2C bus number
-
-
-# Assuming you have the SEN0433 connected to the default I2C bus
-bus = smbus.SMBus(1)
-
-# SEN0433 sensor constants
-SEN0433_ADDRESS = 0x53
-ACCEL_XOUT_H = 0x32
-ACCEL_YOUT_H = 0x34
-ACCEL_ZOUT_H = 0x36
-TEMP_OUT_H = 0x39
-
-
+# Function to read sensor data with vibration data
 def read_sensor_data():
-    # Read raw accelerometer data
-    x_raw = bus.read_i2c_block_data(SEN0433_ADDRESS, ACCEL_XOUT_H, 2)
-    y_raw = bus.read_i2c_block_data(SEN0433_ADDRESS, ACCEL_YOUT_H, 2)
-    z_raw = bus.read_i2c_block_data(SEN0433_ADDRESS, ACCEL_ZOUT_H, 2)
+    # Generate random values for temperature, humidity, and vibration data
+    temperature = round(random.uniform(25.0, 33.0), 2)
 
-    # Read raw temperature data
-    temp_raw = bus.read_i2c_block_data(SEN0433_ADDRESS, TEMP_OUT_H, 2)
-
-    # Convert raw data to acceleration values
-    x_accel = (x_raw[0] << 8 | x_raw[1]) / 16384.0  # Sensitivity: +/- 2g
-    y_accel = (y_raw[0] << 8 | y_raw[1]) / 16384.0
-    z_accel = (z_raw[0] << 8 | z_raw[1]) / 16384.0
-
-    # Convert raw temperature data to Celsius
-    temp_celsius = ((temp_raw[0] << 8 | temp_raw[1]) / 340.0) + 36.53
-
-    return {
-        "x_acceleration": x_accel,
-        "y_acceleration": y_accel,
-        "z_acceleration": z_accel,
-        "temperature": temp_celsius,
+    # Generate vibration data (simplified example)
+    vibration_data = {
+        "X": round(np.random.uniform(-25, 5), 2),
+        "Y": round(np.random.uniform(5, 35), 2),
+        "Z": round(np.random.uniform(-1030, -1011), 2),
     }
+
+    sensor_data = {
+        "Temperature": temperature,
+        "Vibration": vibration_data,
+    }
+    return sensor_data
 
 
 # Function to append data to Excel sheet
+# def append_to_excel(data, excel_path):
+#     df = pd.DataFrame(data, index=[datetime.now()])
+
+#     # Try to read the existing Excel file, if it exists
+#     try:
+#         existing_df = pd.read_excel(excel_path, index_col=0)
+#         df = pd.concat([existing_df, df])
+#     except FileNotFoundError:
+#         # If the file doesn't exist, create a new DataFrame
+#         pass
+
+#     # Write the combined DataFrame to the Excel file
+#     df.to_excel(excel_path, index=True)
+#     print(f"Data written to Excel file: {excel_path}")
+
+
 def append_to_excel(data, excel_path):
-    df = pd.DataFrame(data, index=[datetime.now()])
+    df = pd.DataFrame(index=[datetime.now()])
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                df[f"{key}_{sub_key}"] = sub_value
+        else:
+            df[key] = value
 
     # Try to read the existing Excel file, if it exists
     try:
